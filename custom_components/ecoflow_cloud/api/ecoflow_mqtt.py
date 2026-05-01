@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import logging
 import ssl
+from datetime import datetime
 from typing import Any
 
 from homeassistant.core import callback
+from homeassistant.util import dt
 from paho.mqtt.client import Client, ConnectFlags, DisconnectFlags, MQTTMessage, PayloadType
 from paho.mqtt.enums import CallbackAPIVersion
 from paho.mqtt.properties import Properties
@@ -14,11 +16,14 @@ from ..devices import BaseDevice
 from . import EcoflowMqttInfo
 
 _LOGGER = logging.getLogger(__name__)
+_EPOCH = dt.utcnow().replace(year=2000, month=1, day=1, hour=0, minute=0, second=0)
 
 
 class EcoflowMQTTClient:
     def __init__(self, mqtt_info: EcoflowMqttInfo, devices: dict[str, BaseDevice]):
         self.connected = False
+        self._last_message_time: datetime = _EPOCH
+        self._last_connect_time: datetime | None = None
         self.__mqtt_info = mqtt_info
         self.__devices: dict[str, BaseDevice] = devices
 
@@ -51,21 +56,23 @@ class EcoflowMQTTClient:
             _LOGGER.exception("Initial EcoFlow MQTT connection timed out; entities will retry reconnect from status updates")
 
     def is_connected(self):
-        return self.__client.is_connected()
+        return self.connected and self.__client.is_connected()
 
-    def reconnect(self) -> bool:
-        try:
-            _LOGGER.info(f"Re-connecting to MQTT Broker {self.__mqtt_info.url}:{self.__mqtt_info.port}")
-            self.__client.loop_stop()
-            self.__client.reconnect()
-            self.__client.loop_start()
-            return True
-        except Exception as e:
-            _LOGGER.error(e)
-            return False
+    @property
+    def last_message_time(self) -> datetime:
+        return self._last_message_time
+
+    @property
+    def last_connect_time(self) -> datetime | None:
+        return self._last_connect_time
+
+    @property
+    def has_seen_message(self) -> bool:
+        return self._last_message_time > _EPOCH
 
     @callback
     def _on_socket_close(self, client: Client, userdata: Any, sock: Any) -> None:
+        self.connected = False
         _LOGGER.info(f"MQTT Socket disconnection : {str(sock)}")
 
     @callback
@@ -74,6 +81,7 @@ class EcoflowMQTTClient:
     ):
         if rc == 0:
             self.connected = True
+            self._last_connect_time = dt.utcnow()
             target_topics = [(topic, 1) for topic in self.__target_topics()]
             self.__client.subscribe(target_topics)
             _LOGGER.info(f"Subscribed to MQTT topics {target_topics}")
@@ -101,6 +109,7 @@ class EcoflowMQTTClient:
     @callback
     def _on_message(self, client, userdata, message: MQTTMessage):
         try:
+            self._last_message_time = dt.utcnow()
             for sn, device in self.__devices.items():
                 if device.update_data(message.payload, message.topic):
                     _LOGGER.debug(f"Message for {sn} and Topic {message.topic} : {message.payload.hex()}")

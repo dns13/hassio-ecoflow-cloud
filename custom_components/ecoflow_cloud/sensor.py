@@ -778,7 +778,7 @@ class StatusSensorEntity(SensorEntity, EcoFlowAbstractDataEntity):  # type: igno
         if reconnect_count is None:
             return False
 
-        self._attrs[ATTR_STATUS_RECONNECTS] = reconnect_count
+        self._attrs[ATTR_STATUS_RECONNECTS] = self._client.total_reconnect_count
         self.hass.async_create_background_task(
             self._async_reconnect_mqtt(),
             f"reconnect ecoflow mqtt {self._device.device_info.sn}",
@@ -803,7 +803,7 @@ class StatusSensorEntity(SensorEntity, EcoFlowAbstractDataEntity):  # type: igno
             self._attrs[ATTR_STATUS_UPDATES] = self._tracker._explicit_status_count
             self._attrs[ATTR_DATA_UPDATES] = self._tracker._data_received_count
         self._attrs[ATTR_MQTT_CONNECTED] = self._client.mqtt_client.is_connected()
-        self._attrs[ATTR_STATUS_RECONNECTS] = self._client.mqtt_reconnect_count
+        self._attrs[ATTR_STATUS_RECONNECTS] = self._client.total_reconnect_count
 
     @property
     def extra_state_attributes(self) -> Mapping[str, Any] | None:

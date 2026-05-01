@@ -257,8 +257,8 @@ class SmartHomePanel3(DeltaPro3):
     def selects(self, client: EcoflowApiClient) -> list[SelectEntity]:
         return []
 
-    def configure(self, hass: HomeAssistant) -> None:
-        super().configure(hass)
+    def configure(self, hass: HomeAssistant, client: EcoflowApiClient) -> None:
+        super().configure(hass, client)
         self._hass = hass
         self._store: Store[dict] = Store(hass, 1, f"ecoflow_cloud.{self.device_info.sn}.circuit_names")
 

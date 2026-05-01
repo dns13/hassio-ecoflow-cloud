@@ -369,8 +369,8 @@ class SmartHomePanel(BaseDevice):
     def flat_json(self):
         return False
 
-    def configure(self, hass: HomeAssistant):
-        super().configure(hass)
+    def configure(self, hass: HomeAssistant, client: EcoflowApiClient):
+        super().configure(hass, client)
         self._hass = hass
         self._store: Store[dict] = Store(hass, 1, f"ecoflow_cloud.{self.device_info.sn}.timetask")
 

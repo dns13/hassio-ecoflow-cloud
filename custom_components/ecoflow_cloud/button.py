@@ -1,4 +1,3 @@
-import logging
 from typing import Any
 
 from homeassistant.components.button import ButtonDeviceClass, ButtonEntity
@@ -11,8 +10,6 @@ from custom_components.ecoflow_cloud.entities import EcoFlowAbstractEntity
 from . import ECOFLOW_DOMAIN
 from .api import EcoflowApiClient
 from .entities import BaseButtonEntity
-
-_LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback):
@@ -40,6 +37,4 @@ class ReconnectButtonEntity(ButtonEntity, EcoFlowAbstractEntity):
         self._attr_device_class = ButtonDeviceClass.RESTART
 
     async def async_press(self) -> None:
-        await self.hass.async_add_executor_job(self._client.stop)
-        await self._client.login()
-        await self.hass.async_add_executor_job(self._client.start)
+        await self._client.async_reconnect("manual reconnect button", force=True)

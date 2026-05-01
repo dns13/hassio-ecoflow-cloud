@@ -76,8 +76,17 @@ class BaseDevice(ABC):
             status_callback=self.status_tracker,
         )
 
-    def configure(self, hass: HomeAssistant):
-        self.coordinator = DeviceDataCoordinator(hass, self.data, self.device_data.options.refresh_period)
+    def configure(self, hass: HomeAssistant, client: EcoflowApiClient):
+        self.coordinator = DeviceDataCoordinator(
+            hass,
+            client,
+            self.data,
+            self.status_tracker,
+            self.device_data.options.refresh_period,
+            self.device_data.options.assume_offline_sec,
+            self.device_info.sn,
+            self.device_info.name,
+        )
 
     @staticmethod
     def default_charging_power_step() -> int:
