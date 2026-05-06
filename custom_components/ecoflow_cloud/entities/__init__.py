@@ -145,8 +145,8 @@ class EcoFlowDictEntity(EcoFlowAbstractDataEntity):
         elif self._device.status_tracker.is_offline:  # Device is offline
             # Reset sensors that should reset to default values
             if isinstance(self, BaseSensorEntity) and self._attr_default_value is not None:
-                self._mqtt_key_expr.update(self.coordinator.data.data_holder.params, self._attr_default_value)
-                self._updated(self.coordinator.data.data_holder.params)
+                if self._update_value(self._attr_default_value):
+                    self.schedule_update_ha_state()
 
     def _updated(self, data: dict[str, Any]):
         # update attributes
