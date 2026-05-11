@@ -1,6 +1,9 @@
 import logging
+import time
 from abc import ABC, abstractmethod
 from typing import Any
+
+import asyncio
 
 from aiohttp import ClientResponse
 from attr import dataclass
@@ -31,6 +34,9 @@ class EcoflowApiClient(ABC):
         self.mqtt_info: EcoflowMqttInfo
         self.devices: dict[str, Any] = {}
         self.mqtt_client: EcoflowMQTTClient
+        self._reconnect_lock = asyncio.Lock()
+        self._last_reconnect_monotonic = 0.0
+        self._reconnect_count = 0
 
     @abstractmethod
     async def login(self):
@@ -137,3 +143,43 @@ class EcoflowApiClient(ABC):
         _LOGGER.debug("Stopping MQTT client for %s", self.mqtt_info.client_id)
         assert self.mqtt_client is not None
         self.mqtt_client.stop()
+
+    @property
+    def reconnect_count(self) -> int:
+        return self._reconnect_count
+
+    async def async_reconnect(self, reason: str, min_interval_sec: int = 120, force: bool = False) -> bool:
+        """Reconnect MQTT by re-authenticating and starting a new client session."""
+        if self._reconnect_lock.locked() and not force:
+            _LOGGER.debug("Reconnect already in progress for %s", self.mqtt_info.client_id)
+            return False
+
+        async with self._reconnect_lock:
+            now = time.monotonic()
+            if not force and (now - self._last_reconnect_monotonic) < min_interval_sec:
+                _LOGGER.debug(
+                    "Reconnect suppressed by cooldown for %s (reason=%s)",
+                    self.mqtt_info.client_id,
+                    reason,
+                )
+                return False
+
+            if not force:
+                _LOGGER.warning("Triggering MQTT reconnect for %s: %s", self.mqtt_info.client_id, reason)
+            else:
+                _LOGGER.debug("Triggering MQTT reconnect for %s: %s", self.mqtt_info.client_id, reason)
+            try:
+                try:
+                    await asyncio.to_thread(self.stop)
+                except Exception:
+                    _LOGGER.debug("Ignoring stop() failure before reconnect", exc_info=True)
+
+                await self.login()
+                await asyncio.to_thread(self.start)
+            except Exception as err:
+                _LOGGER.error("MQTT reconnect failed for %s: %s", self.mqtt_info.client_id, err, exc_info=True)
+                return False
+
+            self._last_reconnect_monotonic = time.monotonic()
+            self._reconnect_count += 1
+            return True
