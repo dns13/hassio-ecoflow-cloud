@@ -7,7 +7,6 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 
 from custom_components.ecoflow_cloud.devices.powerkit import PowerKit
-from custom_components.ecoflow_cloud.entities import BaseSensorEntity
 from custom_components.ecoflow_cloud import EcoflowAuthentication, EcoflowMQTTClient
 
 logging.basicConfig(level=logging.INFO)
